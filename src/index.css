@@ -1,13 +1,19 @@
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  max-width: 100%;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  width: 100%;
 }
 
 #root {
   display: contents;
+  overflow-x: hidden;
 }
