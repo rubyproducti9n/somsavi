@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import logoUrl from './assets/logo.png'
 import heroBgUrl from './assets/hero_bg.png'
 import aboutUsUrl from './assets/about_us.png'
@@ -33,28 +33,89 @@ function useScrollAnimation() {
 function App() {
   useScrollAnimation();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState('hero');
+
+  const isManualScrolling = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 380);
+
+      // Skip auto-detection if we are currently performing a manual smooth scroll
+      if (isManualScrolling.current) return;
+
+      // Bottom of page check: Force 'contact' as active if we've reached the end
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 50;
+      if (atBottom) {
+        setActiveSection('contact');
+        return;
+      }
+
+      const sections = ['hero', 'about', 'products', 'contact'];
+      const scrollPosition = window.scrollY + 150; // Increased offset for better precision
+
+      sections.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          const { offsetTop, offsetHeight } = element;
+          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+            setActiveSection(id);
+          }
+        }
+      });
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const smoothScrollTo = (elementId: string) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    isManualScrolling.current = true;
+    setActiveSection(elementId); // Set active immediately for better UI response
+
+    const headerOffset = 50; // Adjust this value to change the gap at the top
+    const targetPosition = (element.getBoundingClientRect().top + window.pageYOffset) - (elementId === 'hero' ? 0 : headerOffset);
+    const startPosition = window.pageYOffset;
+    const distance = targetPosition - startPosition;
+    const duration = 1000;
+    let start: number | null = null;
+
+    const animation = (currentTime: number) => {
+      if (start === null) start = currentTime;
+      const timeElapsed = currentTime - start;
+      const run = easeOutCubic(timeElapsed / duration) * distance + startPosition;
+      window.scrollTo(0, run);
+      
+      if (timeElapsed < duration) {
+        requestAnimationFrame(animation);
+      } else {
+        // Delay resetting manual scroll slightly to allow the final scroll event to be ignored
+        setTimeout(() => {
+          isManualScrolling.current = false;
+        }, 50);
+      }
+    };
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    requestAnimationFrame(animation);
+  };
+
   const scrollToProducts = () => {
-    document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+    smoothScrollTo('products');
   };
 
   return (
     <div className="light app-container">
       <header className={`top-app-bar ${isScrolled ? 'scrolled' : ''}`}>
         <div className="top-app-bar-content">
-          <img src={logoUrl} alt="SOMSAVI Logo" className="logo" />
+          <img src={logoUrl} alt="SOMSAVI Logo" className={`logo ${!isScrolled ? 'logo-hidden' : ''}`} />
           <nav className="nav-links">
-            <a href="#about" className="nav-link">About</a>
-            <a href="#products" className="nav-link">Products</a>
-            <a href="#contact" className="nav-link">Contact</a>
+            <a href="#about" className={`nav-link ${activeSection === 'about' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); smoothScrollTo('about'); }}>About</a>
+            <a href="#products" className={`nav-link ${activeSection === 'products' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); smoothScrollTo('products'); }}>Products</a>
+            <a href="#contact" className={`nav-link ${activeSection === 'contact' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); smoothScrollTo('contact'); }}>Contact</a>
           </nav>
         </div>
       </header>
@@ -66,6 +127,7 @@ function App() {
           </div>
           
           <div className="hero-content">
+            <img src={logoUrl} alt="SOMSAVI Logo" className={`hero-logo ${isScrolled ? 'hero-logo-hidden' : ''}`} />
             <h1 className="display-large animate-on-scroll">SOMSAVI AGRO INDUSTRIES LLP.</h1>
             <h2 className="title-medium animate-on-scroll" style={{ transitionDelay: '0.15s' }}>FARM TO HOME</h2>
             <button className="m3-filled-button animate-on-scroll" onClick={scrollToProducts} style={{ transitionDelay: '0.3s' }}>
